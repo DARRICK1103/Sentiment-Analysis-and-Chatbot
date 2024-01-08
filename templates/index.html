@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script> <!-- Include jQuery for AJAX -->
+{% endblock %}
+
+{% block body %}
+<div id="Input">
+    <h1>Sentiment Analysis</h1>
+    <textarea id="textInput" name="text" placeholder="Type your text here..."></textarea>
+    <button id="analyze_button" type="button" onclick="analyze()">Analyze</button>
+    <canvas id="myChart" style="width:100%;max-width:700px"></canvas>
+</div>
+
+<button id="chatbotButton" onclick="toggleChatbot()">Chatbot</button>
+
+<div id="chatbotContainer">
+    <div id="chatArea" class="scrollable"></div>
+    <div id="userInput">
+        <input type="text" id="userMessageInput" placeholder="Type your message..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+</div>
+
+<script>
+    function analyze() {
+        var inputText = document.getElementById('textInput').value;
+
+        // Make an AJAX request to the Flask server
+        $.ajax({
+            type: 'POST',
+            url: '/analyze',
+            data: JSON.stringify({ text: inputText }),
+            contentType: 'application/json;charset=UTF-8',
+            success: function (data) {
+                updateChart(data);
+            }
+        });
+    }
+
+    function updateChart(sentimentData) {
+        var ctx = document.getElementById('myChart').getContext('2d');
+        var myChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Positive', 'Negative', 'Neutral'],
+                datasets: [{
+                    label: 'Sentiment Probabilities',
+                    data: [sentimentData.pos, sentimentData.neg, sentimentData.neu],
+                    backgroundColor: ['green', 'red', 'grey'],
+                }],
+            },
+            options: {
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true },
+                },
+            },
+        });
+    }
+
+    function fetchBotResponse(userMessage, callback) {
+    // Make an AJAX request to the Flask server
+    $.ajax({
+        type: 'POST',
+        url: '/chat',
+        contentType: 'application/json;charset=UTF-8',
+        data: JSON.stringify({ message: userMessage }),
+        success: function (data) {
+            callback(data.message);
+        }
+    });
+}
+
+function toggleChatbot() {
+    var chatbotContainer = document.getElementById('chatbotContainer');
+    chatbotContainer.style.display = chatbotContainer.style.display === 'none' ? 'block' : 'none';
+}
+
+function sendMessage() {
+    var userMessageInput = document.getElementById('userMessageInput');
+    var userMessage = userMessageInput.value;
+
+    // Add user message to the chat area
+    appendMessage('user', userMessage);
+
+    // Clear the input field
+    userMessageInput.value = '';
+
+    // Fetch bot response from Flask server
+    fetchBotResponse(userMessage, function(botResponse) {
+  
+        // Add bot response to the chat area
+        appendMessage('bot', botResponse);
+    });
+}
+
+function appendMessage(sender, message) {
+    var chatArea = document.getElementById('chatArea');
+    var messageElement = document.createElement('div');
+    messageElement.className = sender;
+    messageElement.textContent = message;
+    chatArea.appendChild(messageElement);
+}
+
+</script>
+{% endblock %}
